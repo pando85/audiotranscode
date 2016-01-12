@@ -3,14 +3,12 @@
 from setuptools import setup, find_packages
 
 import os
-def read(fname):
-    return open(os.path.join(os.path.dirname(__file__), fname)).read()
 
 setup(
     name='Audiotranscode',
     version='0.1',
     description='Python module to transcode between audio formats',
-    long_description=read('README'),
+    long_description=None,
     author='Pando85',
     author_email='pando855@gmail.com',
     url='https://github.com/pando85/audiotranscode',
