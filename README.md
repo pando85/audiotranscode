@@ -1,7 +1,7 @@
 audiotranscode
 ==============
 
-[![Build Status](https://travis-ci.org/devsnd/python-audiotranscode.svg?branch=master)](https://travis-ci.org/devsnd/python-audiotranscode)
+[![Build Status](https://travis-ci.org/pando85/audiotranscode.svg?branch=master)](https://travis-ci.org/pando85/audiotranscode)
 
 python module to transcode between audio formats using the CLI frontends of the codecs already installed on your system, e.g lame, vorbis-tools etc
 
