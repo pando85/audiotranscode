@@ -27,3 +27,4 @@ pip-log.txt
 .mr.developer.cfg
 
 test/output
+__init__.py

@@ -25,7 +25,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>
 __version__ = '0.2'
 
 import subprocess
-import re
 import os
 import time
 from distutils.spawn import find_executable
@@ -37,6 +36,8 @@ MIMETYPES = {
     'aac': 'audio/aac',
     'm4a': 'audio/m4a',
     'wav': 'audio/wav',
+    'wma' : 'audio/x-ms-wma',
+    'opus': 'audio/ogg; codecs=opus',
 }
 
 
@@ -90,12 +91,15 @@ class Decoder(Transcoder):
         self.mimetype = MIMETYPES[filetype]
         self.command = command
 
-    def decode(self, filepath):
+    def decode(self, filepath, starttime=0):
         """returns the process the decodes the file to a raw audio stream"""
         # get the absolute path under which the executable is found
         cmd = [find_executable(self.command[0])] + self.command[1:]
         if 'INPUT' in cmd:
             cmd[cmd.index('INPUT')] = filepath
+        if 'STARTTIME' in cmd:
+            hours, minutes, seconds = starttime//3600, starttime//60%60, starttime%60
+            cmd[cmd.index('STARTTIME')] = '%d:%d:%d' % (hours, minutes, seconds)
         return subprocess.Popen(cmd,
                                 stdout=subprocess.PIPE,
                                 stderr=Transcoder.devnull
@@ -168,19 +172,27 @@ class AudioTranscode:
                          '--channels=2', '--bps=16', '--sample-rate=44100',
                          '--sign=signed', '-o', '-', '-']),
         Encoder('wav', ['cat']),
+        Encoder('opus', ['opusenc', '--bitrate', 'BITRATE', '--quiet',
+                         '-', '-']),
     ]
     Decoders = [
         #INPUT is replaced with filepath
-        Decoder('mp3', ['mpg123', '-w', '-', 'INPUT']),
-        Decoder('mp3', ['ffmpeg', '-i', 'INPUT', '-f', 'wav',
+        #Decoder('mp3', ['mpg123', '-w', '-', 'INPUT']),
+        Decoder('mp3', ['ffmpeg', '-ss', 'STARTTIME',
+                    '-i', 'INPUT', '-f', 'wav',
                         '-acodec', 'pcm_s16le', '-']),
+        Decoder('wma'  , ['ffmpeg', '-ss', 'STARTTIME',
+                      '-i', 'INPUT', '-f', 'wav',
+              '-acodec', 'pcm_s16le', '-']),
         Decoder('ogg', ['oggdec', '-Q', '-b', '16', '-o', '-', 'INPUT']),
-        Decoder('ogg', ['ffmpeg', '-i', 'INPUT', '-f', 'wav',
+        Decoder('ogg', ['ffmpeg', '-ss', 'STARTTIME',
+                '-i', 'INPUT', '-f', 'wav',
                         '-acodec', 'pcm_s16le', '-']),
         Decoder('flac', ['flac', '-F', '-d', '-c', 'INPUT']),
         Decoder('aac', ['faad', '-w', 'INPUT']),
         Decoder('m4a', ['faad', '-w', 'INPUT']),
         Decoder('wav', ['cat', 'INPUT']),
+        Decoder('opus', ['opusdec', 'INPUT', '--force-wav', '--quiet', '-']),
     ]
 
     def __init__(self, debug=False):
@@ -189,7 +201,7 @@ class AudioTranscode:
                                    if enc.available()]
         self.available_decoders = [dec for dec in AudioTranscode.Decoders
                                    if dec.available()]
-        self.bitrate = {'mp3': 160, 'ogg': 128, 'aac': 128}
+        self.bitrate = {'mp3': 160, 'ogg': 128, 'aac': 128, 'opus': '64'}
 
     def available_encoder_formats(self):
         """returns the names of all available encoder formats"""
@@ -199,7 +211,7 @@ class AudioTranscode:
         """returns the names of all available decoder formats"""
         return set(dec.filetype for dec in self.available_decoders)
 
-    def _decode(self, filepath, decoder=None):
+    def _decode(self, filepath, decoder=None, starttime=0):
         """find the correct decoder and return a decoder process"""
         if not os.path.exists(filepath):
             filepath = os.path.abspath(filepath)
@@ -216,7 +228,7 @@ class AudioTranscode:
                     break
             if self.debug:
                 print(decoder)
-        return decoder.decode(filepath)
+        return decoder.decode(filepath, starttime=starttime)
 
     def _encode(self, audio_format, decoder_process,
                 bitrate=None, encoder=None):
@@ -246,20 +258,26 @@ class AudioTranscode:
         determined using the file extension of those files"""
         audioformat = _filetype(out_file)
         self.check_encoder_available(audioformat)
+        output_dir = os.path.dirname(out_file)
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+            
         with open(out_file, 'wb') as fhandler:
             for data in self.transcode_stream(in_file, audioformat, bitrate):
                 fhandler.write(data)
             fhandler.close()
 
     def transcode_stream(self, filepath, newformat, bitrate=None,
-                         encoder=None, decoder=None):
+                         encoder=None, decoder=None, starttime=0):
         """returns a generator wih the bytestream of the encoded audio
         stream"""
-        self.check_encoder_available(newformat)
+        if not encoder:
+            self.check_encoder_available(newformat)
         decoder_process = None
         encoder_process = None
         try:
-            decoder_process = self._decode(filepath, decoder)
+            decoder_process = self._decode(filepath, decoder,
+                                       starttime=starttime)
             encoder_process = self._encode(newformat, decoder_process,
                                            bitrate=bitrate, encoder=encoder)
             while encoder_process.poll() is None:
@@ -268,9 +286,6 @@ class AudioTranscode:
                     time.sleep(0.1)  # wait for new data...
                     break
                 yield data
-        except Exception as exc:
-            #pass on exception, but clean up
-            raise exc
         finally:
             if decoder_process and decoder_process.poll() is None:
                 if decoder_process.stderr:
