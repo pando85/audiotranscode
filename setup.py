@@ -4,9 +4,11 @@ from setuptools import setup, find_packages
 
 import os
 
+import audiotranscode
+
 setup(
     name='Audiotranscode',
-    version='0.1',
+    version=audiotranscode.__version__,
     description='Python module to transcode between audio formats',
     long_description=None,
     author='Pando85',
@@ -33,5 +35,6 @@ setup(
         'Topic :: Multimedia',
         'Topic :: Multimedia :: Sound/Audio',
     ],
+    zipfile = None,
     tests_require=["nose"],
 )
