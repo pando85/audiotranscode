@@ -29,14 +29,12 @@
 #
 
 import unittest
-import os, sys
+
+import os
 
 from nose.tools import *
 
-# workaround to be compatible with new cherrymusic
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-import audiotranscode.audiotranscode as transcode
-
+import audiotranscode as transcode
 
 transcoder = transcode.AudioTranscode(debug=True)
 testdir = os.path.dirname(__file__)
