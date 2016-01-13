@@ -260,11 +260,17 @@ class AudioTranscode:
         output_dir = os.path.dirname(out_file)
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
-            
-        with open(out_file, 'wb') as fhandler:
-            for data in self.transcode_stream(in_file, audioformat, bitrate):
-                fhandler.write(data)
-            fhandler.close()
+        
+        try:
+            with open(out_file, 'wb') as fhandler:
+                for data in self.transcode_stream(in_file, audioformat, bitrate):
+                    fhandler.write(data)
+                fhandler.close()
+        except:
+            raise
+        finally:
+            os.remove(out_file)
+
 
     def transcode_stream(self, filepath, newformat, bitrate=None,
                          encoder=None, decoder=None, starttime=0):
@@ -285,6 +291,8 @@ class AudioTranscode:
                     time.sleep(0.1)  # wait for new data...
                     break
                 yield data
+        except:
+            raise
         finally:
             if decoder_process and decoder_process.poll() is None:
                 if decoder_process.stderr:
