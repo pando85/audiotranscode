@@ -267,9 +267,8 @@ class AudioTranscode:
                     fhandler.write(data)
                 fhandler.close()
         except:
-            raise
-        finally:
             os.remove(out_file)
+            raise
 
 
     def transcode_stream(self, filepath, newformat, bitrate=None,
